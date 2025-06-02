@@ -1,40 +1,14 @@
-#!/usr/bin/env sh
-set -e
-set -x
-
-# Ensure essential packages are installed first
-apt-get update
-apt-get install -y bash
-
-# Now switch to bash for the rest of the script
-exec bash "$0" "$@"
+#!/bin/bash
 
 # Update system
-apt-get upgrade -y
+apt-get update && apt-get upgrade -y
 
 # Install Java
 apt-get install -y openjdk-8-jdk
 
-# Set JAVA_HOME
-JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-echo "export JAVA_HOME=$JAVA_HOME" | tee -a /etc/profile.d/java.sh /etc/environment
-echo "export PATH=\$JAVA_HOME/bin:\$PATH" | tee -a /etc/profile.d/java.sh /etc/environment
-chmod +x /etc/profile.d/java.sh
-source /etc/profile.d/java.sh
-
-# Verify Java installation
-if [ ! -d "$JAVA_HOME" ]; then
-    echo "Java installation failed"
-    exit 1
-fi
-
 # Create hadoop user
-useradd -m -s /bin/bash hadoop || echo "User exists"
+useradd -m -s /bin/bash hadoop
 echo "hadoop ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
-# Set JAVA_HOME for hadoop user
-echo "export JAVA_HOME=$JAVA_HOME" >> /home/hadoop/.bashrc
-echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> /home/hadoop/.bashrc
 
 # Download and extract Hadoop
 cd /opt

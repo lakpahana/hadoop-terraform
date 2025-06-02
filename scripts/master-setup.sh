@@ -1,9 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env sh
 set -e
 set -x
 
+# Ensure essential packages are installed first
+apt-get update
+apt-get install -y bash
+
+# Now switch to bash for the rest of the script
+exec bash "$0" "$@"
+
 # Update system
-apt-get update && apt-get upgrade -y
+apt-get upgrade -y
 
 # Install Java
 apt-get install -y openjdk-8-jdk

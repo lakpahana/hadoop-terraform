@@ -33,6 +33,12 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
+variable "hadoop_version" {
+  description = "Hadoop version to install"
+  type        = string
+  default     = "3.4.1"
+}
+
 variable "public_subnet_cidr" {
   description = "CIDR block for public subnet"
   type        = string

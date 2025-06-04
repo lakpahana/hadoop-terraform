@@ -60,7 +60,7 @@ resource "aws_security_group" "hadoop_sg" {
   description = "Security group for Hadoop cluster"
   vpc_id      = aws_vpc.hadoop_vpc.id
 
-  # SSH access
+  # SSH access from anywhere
   ingress {
     from_port   = 22
     to_port     = 22
@@ -68,41 +68,28 @@ resource "aws_security_group" "hadoop_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Hadoop ports
-  ingress {
-    from_port   = 8020
-    to_port     = 8020
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-  }
-
-  ingress {
-    from_port   = 9000
-    to_port     = 9000
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-  }
-
-  ingress {
-    from_port   = 50070
-    to_port     = 50070
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-  }
-
-  ingress {
-    from_port   = 8088
-    to_port     = 8088
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-  }
-
-  # Allow all internal VPC traffic
+  # Allow all traffic within the VPC (crucial for Hadoop communication)
   ingress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = [var.vpc_cidr]
+  }
+
+  # Allow access to YARN ResourceManager UI
+  ingress {
+    from_port   = 8088
+    to_port     = 8088
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Allow access to HDFS NameNode UI
+  ingress {
+    from_port   = 9870
+    to_port     = 9870
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # Allow all outbound traffic
@@ -126,14 +113,13 @@ resource "aws_instance" "hadoop_master" {
   subnet_id     = aws_subnet.hadoop_public_subnet.id
 
   vpc_security_group_ids = [aws_security_group.hadoop_sg.id]
-
   root_block_device {
     volume_size = 30
     volume_type = "gp2"
   }
+
   user_data = templatefile("${path.module}/scripts/master-setup.sh", {
-    worker_count = var.worker_count,
-    java_home = "/usr/lib/jvm/java-8-openjdk-amd64"
+    WORKER_COUNT    = var.worker_count,
   })
 
   tags = {
@@ -157,8 +143,7 @@ resource "aws_instance" "hadoop_workers" {
     volume_type = "gp2"
   }
   user_data = templatefile("${path.module}/scripts/worker-setup.sh", {
-    master_ip = aws_instance.hadoop_master.private_ip,
-    java_home = "/usr/lib/jvm/java-8-openjdk-amd64"
+    MASTER_IP      = aws_instance.hadoop_master.private_ip,
   })
 
   tags = {

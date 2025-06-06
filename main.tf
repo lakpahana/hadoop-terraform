@@ -133,8 +133,8 @@ resource "aws_instance" "hadoop_master" {
       # Note: Terraform list to shell list might need careful handling.
       # Using `formatlist` and then `join` for shell echo commands.
       # Ensure this command correctly creates one IP per line in the file.
-      "WORKERS_CONTENT=$(echo '${join("\n", aws_instance.hadoop_workers[*].private_ip)}')" ,
-      "echo "$WORKERS_CONTENT" > /tmp/workers_temp", # Write to a temporary file first
+      "WORKERS_CONTENT=$(echo '${join("\n", aws_instance.hadoop_workers[*].private_ip)}')",
+      "printf '%s' \"$WORKERS_CONTENT\" > /tmp/workers_temp", # Write to a temporary file first
       "sudo mv /tmp/workers_temp /opt/hadoop/etc/hadoop/workers",
       "sudo chown hadoop:hadoop /opt/hadoop/etc/hadoop/workers",
       "sudo chmod 644 /opt/hadoop/etc/hadoop/workers", # Typical permissions

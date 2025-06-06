@@ -120,9 +120,42 @@ resource "aws_instance" "hadoop_master" {
 
   user_data = templatefile("${path.module}/scripts/master-setup.sh", {
     WORKER_COUNT    = var.worker_count,
-    WORKER_PRIVATE_IPS  = join(",", aws_instance.hadoop_workers[*].private_ip),
     MASTER_PRIVATE_IP = aws_instance.hadoop_master.private_ip
   })
+
+  provisioner "remote-exec" {
+    inline = [
+      "echo 'Waiting for SSH to become available...'",
+      "sleep 30", # Give some time for SSH to be fully up after boot
+      "echo 'Populating Hadoop workers file and restarting services...'",
+
+      # Create the workers file content
+      # Note: Terraform list to shell list might need careful handling.
+      # Using `formatlist` and then `join` for shell echo commands.
+      # Ensure this command correctly creates one IP per line in the file.
+      "WORKERS_CONTENT=$(echo '${join("\n", aws_instance.hadoop_workers[*].private_ip)}')" ,
+      "echo "$WORKERS_CONTENT" > /tmp/workers_temp", # Write to a temporary file first
+      "sudo mv /tmp/workers_temp /opt/hadoop/etc/hadoop/workers",
+      "sudo chown hadoop:hadoop /opt/hadoop/etc/hadoop/workers",
+      "sudo chmod 644 /opt/hadoop/etc/hadoop/workers", # Typical permissions
+
+      "echo 'Workers file configured. Restarting Hadoop services on master...'",
+      "sudo su - hadoop -c 'source /home/hadoop/.bashrc && /opt/hadoop/sbin/stop-dfs.sh'",
+      "sudo su - hadoop -c 'source /home/hadoop/.bashrc && /opt/hadoop/sbin/stop-yarn.sh'",
+      # Add a small delay to ensure services are stopped before starting again
+      "sleep 10",
+      "sudo su - hadoop -c 'source /home/hadoop/.bashrc && /opt/hadoop/sbin/start-dfs.sh'",
+      "sudo su - hadoop -c 'source /home/hadoop/.bashrc && /opt/hadoop/sbin/start-yarn.sh'",
+      "echo 'Hadoop services restarted on master.'"
+    ]
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"  # Assuming the AMI's default user is ubuntu
+      private_key = file(var.ssh_private_key_path) # NEW VARIABLE NEEDED
+      host        = self.public_ip
+    }
+  }
 
   tags = {
     Name = "hadoop-master"

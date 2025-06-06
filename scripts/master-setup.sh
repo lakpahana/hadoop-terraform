@@ -1,8 +1,6 @@
 #!/bin/bash
 
 # --- Configuration Variables (intended to be set by Terraform) ---
-# WORKER_PRIVATE_IPS will be injected by Terraform user_data
-# Example: WORKER_PRIVATE_IPS="10.0.1.12,10.0.1.13"
 # MASTER_PRIVATE_IP will be injected by Terraform user_data
 # Example: MASTER_PRIVATE_IP="10.0.1.11"
 
@@ -216,24 +214,6 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
     </property>
 </configuration>' | tee "/opt/hadoop/etc/hadoop/yarn-site.xml" > /dev/null || log_error "Failed to write yarn-site.xml."
 log_success "yarn-site.xml configured."
-
-log_info "Configuring worker nodes for Hadoop."
-if [ -z "\${WORKER_PRIVATE_IPS}" ]; then
-    log_error "WORKER_PRIVATE_IPS is not set. Cannot configure worker nodes."
-fi
-
-echo "" > "/opt/hadoop/etc/hadoop/workers" # Clear existing content or create new file
-
-# Convert comma-separated string to newlines
-echo "\${WORKER_PRIVATE_IPS}" | tr ',' '\n' | while IFS= read -r ip; do
-  if [[ -n "\$ip" ]]; then # Ensure IP is not empty
-    echo "\$ip" >> "/opt/hadoop/etc/hadoop/workers"
-    log_info "Added worker: \$ip to /opt/hadoop/etc/hadoop/workers"
-  fi
-done
-
-chown "hadoop:hadoop" "/opt/hadoop/etc/hadoop/workers" || log_error "Failed to set ownership for workers file."
-log_success "Worker nodes configured in /opt/hadoop/etc/hadoop/workers."
 
 # 8. Format the NameNode
 log_info "Formatting the HDFS NameNode (run as hadoop)..."

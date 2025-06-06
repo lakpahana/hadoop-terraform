@@ -44,3 +44,9 @@ variable "public_subnet_cidr" {
   type        = string
   default     = "10.0.1.0/24"
 }
+
+variable "ssh_private_key_path" {
+  description = "Local path to the SSH private key for provisioning."
+  type        = string
+  # No default, should be provided by the user.
+}

@@ -120,6 +120,8 @@ resource "aws_instance" "hadoop_master" {
 
   user_data = templatefile("${path.module}/scripts/master-setup.sh", {
     WORKER_COUNT    = var.worker_count,
+    WORKER_PRIVATE_IPS  = join(",", aws_instance.hadoop_workers[*].private_ip),
+    MASTER_PRIVATE_IP = aws_instance.hadoop_master.private_ip
   })
 
   tags = {

@@ -1,6 +1,10 @@
 #!/bin/bash
 
 # --- Configuration Variables (intended to be set by Terraform) ---
+# WORKER_PRIVATE_IPS will be injected by Terraform user_data
+# Example: WORKER_PRIVATE_IPS="10.0.1.12,10.0.1.13"
+# MASTER_PRIVATE_IP will be injected by Terraform user_data
+# Example: MASTER_PRIVATE_IP="10.0.1.11"
 
 
 # --- Functions for Logging and Error Handling ---
@@ -113,6 +117,10 @@ log_info "Updating hadoop-env.sh to set JAVA_HOME."
 sed -i "s|^export JAVA_HOME=.*|export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64|g" "/opt/hadoop/etc/hadoop/hadoop-env.sh" || log_error "Failed to update JAVA_HOME in hadoop-env.sh."
 log_success "hadoop-env.sh updated."
 
+if [ -z "\${MASTER_PRIVATE_IP}" ]; then
+    log_error "MASTER_PRIVATE_IP is not set. Cannot configure master node addresses."
+fi
+
 # core-site.xml
 log_info "Configuring core-site.xml."
 echo '<?xml version="1.0" encoding="UTF-8"?>
@@ -120,7 +128,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <property>
         <name>fs.defaultFS</name>
-        <value>hdfs://localhost:9000</value>
+        <value>hdfs://\${MASTER_PRIVATE_IP}:9000</value>
     </property>
     <property>
         <name>hadoop.tmp.dir</name>
@@ -180,7 +188,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
     </property>
     <property>
         <name>yarn.resourcemanager.hostname</name>
-        <value>localhost</value>
+        <value>\${MASTER_PRIVATE_IP}</value>
     </property>
     <property>
         <name>yarn.acl.enable</name>
@@ -192,7 +200,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
     </property>
     <property>
         <name>yarn.resourcemanager.webapp.address</name>
-        <value>localhost:8088</value>
+        <value>\${MASTER_PRIVATE_IP}:8088</value>
     </property>
     <property>
         <name>yarn.scheduler.minimum-allocation-mb</name>
@@ -208,6 +216,24 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
     </property>
 </configuration>' | tee "/opt/hadoop/etc/hadoop/yarn-site.xml" > /dev/null || log_error "Failed to write yarn-site.xml."
 log_success "yarn-site.xml configured."
+
+log_info "Configuring worker nodes for Hadoop."
+if [ -z "\${WORKER_PRIVATE_IPS}" ]; then
+    log_error "WORKER_PRIVATE_IPS is not set. Cannot configure worker nodes."
+fi
+
+echo "" > "/opt/hadoop/etc/hadoop/workers" # Clear existing content or create new file
+
+# Convert comma-separated string to newlines
+echo "\${WORKER_PRIVATE_IPS}" | tr ',' '\n' | while IFS= read -r ip; do
+  if [[ -n "\$ip" ]]; then # Ensure IP is not empty
+    echo "\$ip" >> "/opt/hadoop/etc/hadoop/workers"
+    log_info "Added worker: \$ip to /opt/hadoop/etc/hadoop/workers"
+  fi
+done
+
+chown "hadoop:hadoop" "/opt/hadoop/etc/hadoop/workers" || log_error "Failed to set ownership for workers file."
+log_success "Worker nodes configured in /opt/hadoop/etc/hadoop/workers."
 
 # 8. Format the NameNode
 log_info "Formatting the HDFS NameNode (run as hadoop)..."

@@ -1,4 +1,4 @@
-Disclaimer: This TF code is AI generated.
+
 
 # Terraform configuration for Hadoop cluster
 
